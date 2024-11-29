@@ -6,4 +6,6 @@
 [Лучшие книги по Apache Kafka](https://habr.com/ru/companies/slurm/articles/648159/)  
 [Crossing the Streams: the New Streaming Foreign-Key Join Feature in Kafka Streams](https://www.confluent.io/resources/kafka-summit-2020/crossing-the-streams-the-new-streaming-foreign-key-join-feature-in-kafka-streams/)  
 [Crossing the Streams: The New Streaming Foreign-Key Join Feature in Kafka Streams](https://www.confluent.io/blog/data-enrichment-with-kafka-streams-foreign-key-joins/)   
+[Kafka Streams Interactive Queries for Confluent Platform](https://docs.confluent.io/platform/current/streams/developer-guide/interactive-queries.html)   
+
 
