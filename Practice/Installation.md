@@ -23,7 +23,13 @@ java -version
 
 ## ✅ Шаг 2: Установка Apache Kafka
 
-Скачиваем и ставим Kafka с помощью RPM-пакета:
+Скачиваем 
+
+```
+sudo wget https://github.com/doraeven/kafka-server/releases/download/3.9.0/kafka-3.9.0-1.el8.x86_64.rpm
+```
+
+и ставим Kafka с помощью RPM-пакета:
 
 ```bash
 sudo rpm -ivh https://github.com/doraeven/kafka-server/releases/download/3.9.0/kafka-3.9.0-1.el8.x86_64.rpm
