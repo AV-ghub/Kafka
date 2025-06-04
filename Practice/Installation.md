@@ -1,4 +1,4 @@
-Конечно, давай развернём сервер Apache Kafka на AlmaLinux с использованием пакетов RPM, доступных через YUM. Это позволит интегрировать Kafka в систему с минимальными усилиями и обеспечить удобное управление через systemd.
+# Развертывание сервера Apache Kafka на AlmaLinux 
 
 ---
 
@@ -10,27 +10,25 @@ Apache Kafka требует установленной Java. Для AlmaLinux 9 
 sudo dnf install java-21-openjdk-devel -y
 ```
 
-
-
-Проверь, что Java установлена:
+Проверка, что Java установлена:
 
 ```bash
 java -version
+# openjdk version "1.8.0_452"
+# OpenJDK Runtime Environment (build 1.8.0_452-b09)
+# OpenJDK 64-Bit Server VM (build 25.452-b09, mixed mode)
 ```
-
-
 
 ---
 
 ## ✅ Шаг 2: Установка Apache Kafka
 
-Скачай и установи Kafka с помощью RPM-пакета:
+Скачиваем и ставим Kafka с помощью RPM-пакета:
 
 ```bash
-sudo rpm -ivh https://github.com/doraeven/kafka-server/releases/download/3.8.0-1.el9.x86_64.rpm
+sudo rpm -ivh https://github.com/doraeven/kafka-server/releases/download/3.9.0/kafka-3.9.0-1.el8.x86_64.rpm
+# Загружается https://github.com/doraeven/kafka-server/releases/download/3.9.0/kafka-3.9.0-1.el8.x86_64.rpm
 ```
-
-
 
 Это установит Kafka и необходимые зависимости.
 
@@ -41,55 +39,197 @@ sudo rpm -ivh https://github.com/doraeven/kafka-server/releases/download/3.8.0-1
 Создай необходимые каталоги для данных:
 
 ```bash
-sudo mkdir -p /var/lib/kafka
-sudo mkdir -p /var/lib/zookeeper
+sudo mkdir -p /home/data/kafka
+# это ставить не нужно, см. ниже
+# sudo mkdir -p /var/lib/zookeeper
+```
+
+Найти путь к файлу конфигурации
+```
+rpm -ql kafka-3.9.0 | grep server.properties
 ```
 
 
-
-Скопируй пример конфигурации:
+Бакап конфигурации:
 
 ```bash
 sudo cp /etc/kafka/server.properties /etc/kafka/server.properties.bak
 ```
 
 
-
-Отредактируй файл конфигурации:
+Редактируем файл конфигурации:
 
 ```bash
 sudo nano /etc/kafka/server.properties
 ```
 
-
-
-Убедись, что следующие строки настроены:
-
 ```properties
-broker.id=0
-listeners=PLAINTEXT://:9092
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#
+# This configuration file is intended for use in ZK-based mode, where Apache ZooKeeper is required.
+# See kafka.server.KafkaConfig for additional details and defaults
+#
+
+############################# Server Basics #############################
+
+# The id of the broker. This must be set to a unique integer for each broker.
+# broker.id=0
+
+############################# Socket Server Settings #############################
+
+# The address the socket server listens on. If not configured, the host name will be equal to the value of
+# java.net.InetAddress.getCanonicalHostName(), with PLAINTEXT listener name, and port 9092.
+#   FORMAT:
+#     listeners = listener_name://host_name:port
+#   EXAMPLE:
+#     listeners = PLAINTEXT://your.host.name:9092
+#listeners=PLAINTEXT://:9092
+listeners=PLAINTEXT://:9092,CONTROLLER://:9093
+
+# Listener name, hostname and port the broker will advertise to clients.
+# If not set, it uses the value for "listeners".
 advertised.listeners=PLAINTEXT://your_server_ip:9092
-log.dirs=/var/lib/kafka
-zookeeper.connect=localhost:2181
+
+# Maps listener names to security protocols, the default is for them to be the same. See the config documentation for more details
+#listener.security.protocol.map=PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
+
+# The number of threads that the server uses for receiving requests from the network and sending responses to the network
+num.network.threads=3
+
+# The number of threads that the server uses for processing requests, which may include disk I/O
+num.io.threads=8
+
+# The send buffer (SO_SNDBUF) used by the socket server
+socket.send.buffer.bytes=102400
+
+# The receive buffer (SO_RCVBUF) used by the socket server
+socket.receive.buffer.bytes=102400
+
+# The maximum size of a request that the socket server will accept (protection against OOM)
+socket.request.max.bytes=104857600
+
+
+############################# Log Basics #############################
+
+# A comma separated list of directories under which to store log files
+# log.dirs=/var/lib/kafka/
+log.dirs=/home/data/kafka
+
+# The default number of log partitions per topic. More partitions allow greater
+# parallelism for consumption, but this will also result in more files across
+# the brokers.
+num.partitions=1
+
+# The number of threads per data directory to be used for log recovery at startup and flushing at shutdown.
+# This value is recommended to be increased for installations with data dirs located in RAID array.
+num.recovery.threads.per.data.dir=1
+
+############################# Internal Topic Settings  #############################
+# The replication factor for the group metadata internal topics "__consumer_offsets" and "__transaction_state"
+# For anything other than development testing, a value greater than 1 is recommended to ensure availability such as 3.
+offsets.topic.replication.factor=1
+transaction.state.log.replication.factor=1
+transaction.state.log.min.isr=1
+
+############################# Log Flush Policy #############################
+
+# Messages are immediately written to the filesystem but by default we only fsync() to sync
+# the OS cache lazily. The following configurations control the flush of data to disk.
+# There are a few important trade-offs here:
+#    1. Durability: Unflushed data may be lost if you are not using replication.
+#    2. Latency: Very large flush intervals may lead to latency spikes when the flush does occur as there will be a lot of data to flush.
+#    3. Throughput: The flush is generally the most expensive operation, and a small flush interval may lead to excessive seeks.
+# The settings below allow one to configure the flush policy to flush data after a period of time or
+# every N messages (or both). This can be done globally and overridden on a per-topic basis.
+
+# The number of messages to accept before forcing a flush of data to disk
+# log.flush.interval.messages=10000
+
+# The maximum amount of time a message can sit in a log before we force a flush
+# log.flush.interval.ms=1000
+
+############################# Log Retention Policy #############################
+
+# The following configurations control the disposal of log segments. The policy can
+# be set to delete segments after a period of time, or after a given size has accumulated.
+# A segment will be deleted whenever *either* of these criteria are met. Deletion always happens
+# from the end of the log.
+
+# The minimum age of a log file to be eligible for deletion due to age
+log.retention.hours=168
+
+# A size-based retention policy for logs. Segments are pruned from the log unless the remaining
+# segments drop below log.retention.bytes. Functions independently of log.retention.hours.
+# log.retention.bytes=1073741824
+
+# The maximum size of a log segment file. When this size is reached a new log segment will be created.
+# log.segment.bytes=1073741824
+
+# The interval at which log segments are checked to see if they can be deleted according
+# to the retention policies
+log.retention.check.interval.ms=300000
+
+############################# Zookeeper #############################
+
+# Zookeeper connection string (see zookeeper docs for details).
+# This is a comma separated host:port pairs, each corresponding to a zk
+# server. e.g. "127.0.0.1:3000,127.0.0.1:3001,127.0.0.1:3002".
+# You can also append an optional chroot string to the urls to specify the
+# root directory for all kafka znodes.
+# zookeeper.connect=localhost:2181
+
+# Timeout in ms for connecting to zookeeper
+# zookeeper.connection.timeout.ms=18000
+
+
+############################# Group Coordinator Settings #############################
+
+# The following configuration specifies the time, in milliseconds, that the GroupCoordinator will delay the initial consumer rebalance.
+# The rebalance will be further delayed by the value of group.initial.rebalance.delay.ms as new members join the group, up to a maximum of max.poll.interval.ms.
+# The default value for this is 3 seconds.
+# We override this to 0 here as it makes for a better out-of-the-box experience for development and testing.
+# However, in production environments the default value of 3 seconds is more suitable as this will help to avoid unnecessary, and potentially expensive, rebalances during application startup.
+group.initial.rebalance.delay.ms=0
+
+process.roles=broker,controller
+node.id=1
+controller.listener.names=CONTROLLER
+controller.quorum.voters=1@localhost:9093
+
 ```
 
+> !!!!!!
 
+> Заменить `your_server_ip` на IP-адрес вашего сервера.([idroot.us][2])
 
-Замените `your_server_ip` на IP-адрес вашего сервера.([idroot.us][2])
+> Сразу указываем туда куда надо, сюда льются все метки и данные -> log.dirs=/home/data/kafka
+
 
 ---
 
 ## ✅ Шаг 4: Настройка systemd для Kafka
 
-Создай unit-файл для Kafka:([orcacore.com][3])
+Создать unit-файл для Kafka:([orcacore.com][3])
 
 ```bash
 sudo nano /etc/systemd/system/kafka.service
 ```
 
-
-
-Добавь следующее содержимое:([orcacore.com][3])
+Добавить следующее содержимое:([orcacore.com][3])
 
 ```ini
 [Unit]
@@ -99,403 +239,131 @@ After=network.target zookeeper.service
 [Service]
 Type=simple
 Environment="JAVA_HOME=/usr/lib/jvm/java-21-openjdk"
-ExecStart=/usr/bin/kafka-server-start.sh /etc/kafka/server.properties
-ExecStop=/usr/bin/kafka-server-stop.sh
+ExecStart=/usr/bin/kafka/kafka-server-start.sh /etc/kafka/server.properties
+ExecStop=/usr/bin/kafka/kafka-server-stop.sh
 Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-
-
-Перезагрузи systemd:
+Перезагружаем systemd:
 
 ```bash
 sudo systemctl daemon-reload
 ```
 
-
-
-Включи и запусти Kafka:
+Включаем и запускаем Kafka:
 
 ```bash
 sudo systemctl enable --now kafka
 ```
 
+> Zookeeper ставить не надо!!! (См. далее)
 
-
----
-
-## ✅ Шаг 5: Проверка работы Kafka
-
-Проверь статус сервиса:
-
-```bash
-sudo systemctl status kafka
-```
-
-
-
-Если сервис работает корректно, ты увидишь сообщение о его активности.
-
----
-
-## ✅ Шаг 6: Настройка Zookeeper (если требуется)
-
+Настройка Zookeeper (если требуется)
 Если ты используешь Zookeeper, установи его:([hostnextra.com][1])
-
 ```bash
 sudo dnf install zookeeper-server -y
 ```
-
-
-
 Запусти и включи Zookeeper:
-
 ```bash
 sudo systemctl enable --now zookeeper
 ```
-
-
-
 Убедись, что Kafka настроен на использование Zookeeper, проверив строку `zookeeper.connect` в конфигурационном файле Kafka.
 
----
-
-Если возникнут дополнительные вопросы или потребуется помощь с настройкой продакшн-окружения, мониторинга или безопасности, обращайся — я всегда готов помочь!
-
-[1]: https://hostnextra.com/learn/tutorials/installing-apache-kafka-on-almalinux?utm_source=chatgpt.com "Installing Apache Kafka on AlmaLinux 9 - HostnExtra"
-[2]: https://idroot.us/install-apache-kafka-almalinux-9/?utm_source=chatgpt.com "How To Install Apache Kafka on AlmaLinux 9 - idroot"
-[3]: https://orcacore.com/install-apache-kafka-almalinux-9/?utm_source=chatgpt.com "Install Apache Kafka on AlmaLinux 9 | Full Guide - OrcaCore"
-
-Ты абсолютно прав: начиная с версии Apache Kafka 3.3, был представлен новый консенсусный протокол **KRaft** (Kafka Raft), который позволяет Kafka работать без зависимости от ZooKeeper. Это упрощает архитектуру и повышает производительность. ([infoq.com][1], [developer.confluent.io][2])
+> Начиная с версии Apache Kafka 3.3, был представлен новый консенсусный протокол **KRaft** (Kafka Raft), который позволяет Kafka работать без зависимости от ZooKeeper.   
+> Это упрощает архитектуру и повышает производительность. ([infoq.com][1], [developer.confluent.io][2])
 
 ---
 
-## ✅ Подтверждение: Kafka без ZooKeeper
+### ✅ Подтверждение: Kafka без ZooKeeper
 
 С версии **Kafka 4.0** поддержка ZooKeeper была полностью удалена, и Kafka теперь работает исключительно в KRaft-режиме. ([reddit.com][3])
 
 ---
 
-## ✅ Настройка Kafka в KRaft-режиме
+### ✅ Настройка Kafka в KRaft-режиме
 
-Если ты используешь Kafka версии 3.3 или выше, тебе не нужно устанавливать ZooKeeper. Просто настрой Kafka для работы в KRaft-режиме.
+Если Kafka версии 3.3 или выше, **не нужно устанавливать ZooKeeper**. 
 
-### Шаги настройки:
+> Обратите внимание, что в KRaft-режиме Kafka выполняет функции как брокера, так и контроллера.([medium.com][4])
 
-1. **Создание уникального идентификатора кластера:**
+## Шаги настройки Kafka для работы в KRaft-режиме
 
-   ```bash
-   ./bin/kafka-storage.sh random-uuid
-   ```
-
-
-
-2. **Форматирование данных с указанием идентификатора кластера:**
+### 🔹 1. Создание уникального идентификатора кластера
 
    ```bash
-   ./bin/kafka-storage.sh format -t <uuid> -c ./config/kraft/server.properties
+   # ./bin/kafka-storage.sh random-uuid
+   uuidgen
+   # 82a04bae-8dc4-436f-bfa3-8abd6e669de9
    ```
 
+### 🔹 2. Форматирование данных с указанием идентификатора кластера
 
+В KRaft-режиме Kafka **обязательно требует "форматирования" хранилища**, чтобы создать кластерный мета-файл `meta.properties`. Это действие обычно выполняется **однократно перед первым запуском**, вручную.
 
-3. **Настройка конфигурации в `server.properties`:**
-
-   ```properties
-   process.roles=broker,controller
-   node.id=1
-   listeners=CONTROLLER://controller1.example.com:9093
-   controller.quorum.voters=1@controller1.example.com:9093,2@controller2.example.com:9093,3@controller3.example.com:9093
-   ```
-
-
-
-4. **Запуск Kafka с использованием KRaft-конфигурации:**
 
    ```bash
-   ./bin/kafka-server-start.sh ./config/kraft/server.properties
+   sudo -u kafka /usr/bin/kafka/kafka-storage.sh format -t 82a04bae-8dc4-436f-bfa3-8abd6e669de9 -c /etc/kafka/server.properties
    ```
 
+### 🔹 3. Настройка конфигурации в `server.properties`
+
+   См. выше
 
 
-Обрати внимание, что в KRaft-режиме Kafka выполняет функции как брокера, так и контроллера.([medium.com][4])
-
----
-
-## ✅ Проверка статуса
-
-После запуска Kafka в KRaft-режиме, ты можешь проверить его статус с помощью команды:
+### 🔹 4. Запустить Kafka с использованием KRaft-конфигурации
 
 ```bash
-./bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe
+sudo systemctl daemon-reload
+sudo systemctl enable --now kafka
 ```
 
+### 🔹 5. Проверить, что работает
 
+```bash
+sudo systemctl status kafka
+journalctl -u kafka.service -n 50
+journalctl -u kafka --since "5 minutes ago"
+journalctl -u kafka -f
+sudo journalctl -u kafka -b
+```
 
-Если всё настроено правильно, ты увидишь информацию о доступных топиках и их статусе.
+### 🔹 6. Проверка CLI
+
+```bash
+/usr/bin/kafka/kafka-topics.sh --bootstrap-server localhost:9092 --list
+```
+
+Если всё настроено правильно, ты увидишь информацию о доступных топиках и их статусе
+
+```bash
+__consumer_offsets
+test-topic
+```
 
 ---
 
-Если потребуется помощь с настройкой systemd для автоматического запуска Kafka в KRaft-режиме или с другими аспектами, дай знать — я готов помочь!
+[1]: https://hostnextra.com/learn/tutorials/installing-apache-kafka-on-almalinux?utm_source=chatgpt.com "Installing Apache Kafka on AlmaLinux 9 - HostnExtra"
+[2]: https://idroot.us/install-apache-kafka-almalinux-9/?utm_source=chatgpt.com "How To Install Apache Kafka on AlmaLinux 9 - idroot"
+[3]: https://orcacore.com/install-apache-kafka-almalinux-9/?utm_source=chatgpt.com "Install Apache Kafka on AlmaLinux 9 | Full Guide - OrcaCore"
+
+---
 
 [1]: https://www.infoq.com/news/2022/10/apache-kafka-kraft/?utm_source=chatgpt.com "Apache Kafka 3.3 Replaces ZooKeeper with the New KRaft Consensus Protocol - InfoQ"
 [2]: https://developer.confluent.io/learn/kraft/?utm_source=chatgpt.com "KRaft - Apache Kafka Without ZooKeeper"
 [3]: https://www.reddit.com/r/apachekafka/comments/1je7h1q?utm_source=chatgpt.com "Apache Kafka 4.0 released 🎉"
 [4]: https://medium.com/%40erkndmrl/how-to-run-apache-kafka-without-zookeeper-3376468ddaa8?utm_source=chatgpt.com "How to run Apache Kafka without Zookeeper | by Erkan Demirel | Medium"
 
-Отлично! У тебя установлена **Apache Kafka 3.9.0**, а это значит — можно (и нужно) запускать Kafka **в режиме KRaft (без ZooKeeper)**. Эта версия уже по умолчанию использует KRaft как рекомендованный способ работы, и ты идёшь по правильному пути 💡
-
 ---
-
-## ✅ Что делать дальше (Kafka 3.9, KRaft mode):
-
-Вот пошаговая инструкция под твою систему (AlmaLinux, RPM):
-
----
-
-### 🔹 1. Сгенерировать Cluster UUID
-
-```bash
-/opt/kafka/bin/kafka-storage.sh random-uuid
-```
-
-Сохрани UUID, он будет нужен дальше (например: `e7c3b893a1f34a8c913c9c4e248d233e`).
-
----
-
-### 🔹 2. Отредактировать конфиг для KRaft
-
-Файл обычно: `/etc/kafka/server.properties`
-Если нет — найди путь:
-
-```bash
-rpm -ql kafka-3.9.0 | grep server.properties
-```
-
-Открой для редактирования:
-
-```bash
-sudo nano /etc/kafka/server.properties
-```
-
-Поменяй или добавь следующее (адаптируй под себя):
-
-```properties
-process.roles=broker,controller
-node.id=1
-controller.listener.names=CONTROLLER
-listeners=PLAINTEXT://:9092,CONTROLLER://:9093
-advertised.listeners=PLAINTEXT://your_host_or_ip:9092
-log.dirs=/var/lib/kafka
-controller.quorum.voters=1@localhost:9093
-```
-
-🔹 Не забудь заменить `your_host_or_ip` на IP или имя твоего сервера.
-
----
-
-### 🔹 3. Отформатировать кластер хранилища
-
-```bash
-sudo /opt/kafka/bin/kafka-storage.sh format -t e7c3b893a1f34a8c913c9c4e248d233e -c /etc/kafka/server.properties
-```
-
-*(где `-t <UUID>` — тот, что ты получил на шаге 1)*
-
----
-
-### 🔹 4. Создать systemd unit (если ещё нет)
-
-```bash
-sudo nano /etc/systemd/system/kafka.service
-```
-
-Пример:
-
-```ini
-[Unit]
-Description=Apache Kafka (KRaft mode)
-After=network.target
-
-[Service]
-Type=simple
-Environment="JAVA_HOME=/usr/lib/jvm/java-21-openjdk"
-ExecStart=/opt/kafka/bin/kafka-server-start.sh /etc/kafka/server.properties
-ExecStop=/opt/kafka/bin/kafka-server-stop.sh
-Restart=on-failure
-User=kafka
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Замените `/opt/kafka` на свой путь, если отличается.
-
----
-
-### 🔹 5. Запустить Kafka
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now kafka
-```
-
----
-
-### 🔹 6. Проверить, что работает
-
-```bash
-sudo systemctl status kafka
-journalctl -u kafka -f
-```
-
----
-
-### 🔹 7. Проверка Kafka (CLI)
-
-```bash
-/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
-```
-
-Если видишь пустой список — всё ок, Kafka живёт 🎉
-
----
-
-## 💬 Готов помочь:
-
-* с настройкой Kafka topics и продюсеров/консьюмеров
-* мониторингом через Prometheus или Kafka UI
-* безопасным доступом (SASL, TLS)
-
-Скажи, если хочешь продвинуться дальше!
-
-Понимаю твою ситуацию. В RPM-пакете Kafka 3.9.0 для AlmaLinux скрипт `kafka-storage.sh` отсутствует, так как он предназначен для использования при ручной сборке из исходников. Вместо этого, для настройки KRaft-режима в твоём случае можно воспользоваться встроенными средствами Kafka.
-
----
-
-## ✅ Настройка KRaft-режима без использования `kafka-storage.sh`
-
-В Kafka 3.9.0, установленной через RPM, настройка KRaft-режима осуществляется следующим образом:
-
-1. **Создание уникального идентификатора кластера:**
-
-   Вместо использования `kafka-storage.sh random-uuid`, можно вручную сгенерировать UUID:
-
-   ```bash
-   uuidgen
-   ```
-
-
-
-Сохрани полученный UUID для дальнейшего использования.
-
-2. **Форматирование хранилища:**
-
-   Создай директорию для хранения данных Kafka:
-
-   ```bash
-   sudo mkdir -p /var/lib/kafka
-   ```
-
-
-
-Убедись, что у пользователя, под которым работает Kafka, есть права на эту директорию:
-
-```bash
-sudo chown kafka:kafka /var/lib/kafka
-```
-
-
-
-3. **Настройка конфигурации:**
-
-   Отредактируй файл конфигурации Kafka:
-
-   ```bash
-   sudo nano /etc/kafka/server.properties
-   ```
-
-
-
-Добавь или измени следующие строки:
-
-```properties
-process.roles=broker,controller
-node.id=1
-controller.listener.names=CONTROLLER
-listeners=PLAINTEXT://:9092,CONTROLLER://:9093
-advertised.listeners=PLAINTEXT://your_host_or_ip:9092
-log.dirs=/var/lib/kafka
-controller.quorum.voters=1@localhost:9093
-```
-
-
-
-Замените `your_host_or_ip` на IP или имя твоего сервера.
-
-4. **Запуск Kafka:**
-
-   Перезагрузи systemd:
-
-   ```bash
-   sudo systemctl daemon-reload
-   ```
-
-
-
-Запусти Kafka:
-
-```bash
-sudo systemctl enable --now kafka
-```
-
-
-
----
-
-## 🔧 Дополнительные рекомендации
-
-* **Проверка статуса:**
-
-  Для проверки статуса Kafka:
-
-```bash
-  sudo systemctl status kafka
-```
-
-
-
-* **Просмотр логов:**
-
-  Для просмотра логов Kafka:
-
-```bash
-  journalctl -u kafka -f
-```
-
-
-
-* **Проверка работы Kafka:**
-
-  Для проверки работы Kafka:([reddit.com][1])
-
-```bash
-  /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
-```
-
-
-
-Если команда возвращает пустой список, это означает, что Kafka работает корректно.
-
----
-
-Если возникнут дополнительные вопросы или потребуется помощь с настройкой продакшн-окружения, мониторинга или безопасности, обращайся — я всегда готов помочь!
 
 [1]: https://www.reddit.com/r/apachekafka/comments/11rxz39?utm_source=chatgpt.com "Kafka forgets it cleaned up its own topics??"
 
-Понимаю твою ситуацию. Ошибка `Start request repeated too quickly` в systemd возникает, когда сервис несколько раз подряд завершился с ошибкой, и systemd ограничивает дальнейшие попытки его запуска.
+## Ошибка `Start request repeated too quickly` в systemd 
+
+Возникает, когда сервис несколько раз подряд завершился с ошибкой, и systemd ограничивает дальнейшие попытки его запуска.
+
 
 ---
 
@@ -533,37 +401,15 @@ journalctl -u kafka.service -n 50
 
 Убедись, что в файле `/etc/systemd/system/kafka.service` указаны правильные пути и параметры:
 
-```ini
-[Unit]
-Description=Apache Kafka Server
-After=network.target
-
-[Service]
-Type=simple
-Environment="JAVA_HOME=/usr/lib/jvm/java-21-openjdk"
-ExecStart=/opt/kafka/bin/kafka-server-start.sh /etc/kafka/server.properties
-ExecStop=/opt/kafka/bin/kafka-server-stop.sh
-Restart=on-failure
-User=kafka
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Замените `/opt/kafka` на путь, где установлена ваша Kafka, если он отличается.
-
----
 
 ## ✅ Шаг 4: Проверить права доступа
 
 Убедитесь, что у пользователя, под которым работает Kafka (например, `kafka`), есть необходимые права доступа к файлам и директориям:
 
 ```bash
-sudo chown -R kafka:kafka /opt/kafka
+sudo chown -R kafka:kafka /var/lib/kafka
 sudo chown kafka:kafka /etc/kafka/server.properties
 ```
-
-Замените `/opt/kafka` на путь, где установлена ваша Kafka, если он отличается.
 
 ---
 
@@ -585,22 +431,20 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
 
 ---
 
-Если после выполнения этих шагов сервис Kafka всё ещё не запускается, пожалуйста, предоставь вывод команды `journalctl -u kafka.service -n 50`, чтобы мы могли более точно определить причину сбоя.
-
 [1]: https://unix.stackexchange.com/questions/517759/how-to-fix-service-start-request-repeated-too-quickly-on-custom-service?utm_source=chatgpt.com "debian - How to fix \".service: Start request repeated too quickly.\" on custom service? - Unix & Linux Stack Exchange"
 
-Отлично, ты нашёл ключевую ошибку — она говорит о **несоответствии параметров `node.id` и `broker.id`** в конфигурации Kafka в **KRaft-режиме**.
+## Несоответствие параметров `node.id` и `broker.id` в конфигурации Kafka в KRaft-режиме
 
 ---
 
-## 🧠 Объяснение:
+### 🧠 Объяснение:
 
 В режиме **KRaft (без ZooKeeper)** параметр:
 
 * `broker.id` больше **не используется**
 * Вместо него применяется `node.id`
 
-👉 Однако в некоторых системных сборках Kafka (вроде твоей, через RPM) может быть **всё ещё прописан `broker.id` в `server.properties`**, и это вызывает конфликт.
+👉 Однако в некоторых системных сборках Kafka (вроде через RPM) может быть **всё ещё прописан `broker.id` в `server.properties`**, и это вызывает конфликт.
 
 ---
 
@@ -622,17 +466,9 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
 
 ---
 
-## Пример корректной конфигурации (KRaft, standalone):
+## Пример корректной конфигурации (KRaft, standalone)
 
-```properties
-process.roles=broker,controller
-node.id=1
-controller.listener.names=CONTROLLER
-listeners=PLAINTEXT://:9092,CONTROLLER://:9093
-advertised.listeners=PLAINTEXT://localhost:9092
-log.dirs=/var/lib/kafka
-controller.quorum.voters=1@localhost:9093
-```
+См. выше
 
 ---
 
@@ -661,23 +497,7 @@ controller.quorum.voters=1@localhost:9093
 
 ---
 
-Если всё сделано правильно — Kafka стартует в режиме KRaft без ошибок.
-
-Готов помочь с проверкой `controller.quorum.voters` или созданием топиков после старта.
-
-Да, ты абсолютно прав 👍
-
-Такая строка:
-
-```
-июн 03 15:06:39 dbcs01 systemd[1]: Failed to start Apache Kafka Server.
-```
-
-— это просто **остаток от предыдущей неудачной попытки запуска**, которую systemd ещё не «забыл».
-
----
-
-## ✅ Как убедиться, что Kafka действительно работает сейчас:
+## ✅ Как убедиться, что Kafka действительно работает:
 
 1. **Посмотри свежий лог с фильтрацией по времени:**
 
@@ -715,216 +535,16 @@ sudo systemctl status kafka
 
 ## ✅ Тест Kafka CLI
 
-```bash
-/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
-```
+См. выше
 
 Если команда возвращает пустой список — это **отличный признак**, Kafka в KRaft-режиме работает 🎉
 
 ---
 
-Если нужно, могу помочь:
 
-* создать топики
-* протестировать продюсер/консьюмер
-* настроить запуск Kafka UI или мониторинг
+## Ошибка Error: node ID not found in /var/lib/kafka/
 
-Готов двигаться дальше, когда ты скажешь.
-
-Понимаю твою ситуацию. Ошибка `Start request repeated too quickly` в systemd возникает, когда сервис несколько раз подряд завершился с ошибкой, и systemd ограничивает дальнейшие попытки его запуска.
-
----
-
-## ✅ Шаг 1: Сбросить статус неудачного запуска
-
-Для начала сбросим статус неудачного запуска сервиса:
-
-```bash
-sudo systemctl reset-failed kafka.service
-```
-
-Затем попробуем снова запустить сервис:
-
-```bash
-sudo systemctl start kafka.service
-```
-
-Если сервис снова не запускается, необходимо проверить логи для выявления причины.([reddit.com][1])
-
----
-
-## ✅ Шаг 2: Проверить логи сервиса Kafka
-
-Для получения подробной информации о причине сбоя используем команду:
-
-```bash
-journalctl -u kafka.service -n 50
-```
-
-Эта команда покажет последние 50 строк лога сервиса Kafka.
-
----
-
-## ✅ Шаг 3: Проверить конфигурацию сервиса
-
-Убедись, что в файле `/etc/systemd/system/kafka.service` указаны правильные пути и параметры:
-
-```ini
-[Unit]
-Description=Apache Kafka Server
-After=network.target
-
-[Service]
-Type=simple
-Environment="JAVA_HOME=/usr/lib/jvm/java-21-openjdk"
-ExecStart=/opt/kafka/bin/kafka-server-start.sh /etc/kafka/server.properties
-ExecStop=/opt/kafka/bin/kafka-server-stop.sh
-Restart=on-failure
-User=kafka
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Замените `/opt/kafka` на путь, где установлена ваша Kafka, если он отличается.
-
----
-
-## ✅ Шаг 4: Проверить права доступа
-
-Убедитесь, что у пользователя, под которым работает Kafka (например, `kafka`), есть необходимые права доступа к файлам и директориям:
-
-```bash
-sudo chown -R kafka:kafka /opt/kafka
-sudo chown kafka:kafka /etc/kafka/server.properties
-```
-
-Замените `/opt/kafka` на путь, где установлена ваша Kafka, если он отличается.
-
----
-
-## ✅ Шаг 5: Проверить переменную окружения `JAVA_HOME`
-
-Убедитесь, что переменная окружения `JAVA_HOME` правильно настроена и указывает на установленную версию Java:
-
-```bash
-echo $JAVA_HOME
-```
-
-Если переменная не установлена или указывает на неверный путь, установите её:
-
-```bash
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
-```
-
-Добавьте эту строку в файл `~/.bash_profile` или `/etc/profile`, чтобы переменная сохранялась после перезагрузки.
-
----
-
-Если после выполнения этих шагов сервис Kafka всё ещё не запускается, пожалуйста, предоставь вывод команды `journalctl -u kafka.service -n 50`, чтобы мы могли более точно определить причину сбоя.
-
-[1]: https://www.reddit.com/r/Fedora/comments/ee5134?utm_source=chatgpt.com "I can't get docker's service to start."
-
-Отлично, теперь видно настоящую причину сбоя:
-
-> **`java.lang.RuntimeException: No readable meta.properties files found.`**
-
-Это значит, что Kafka **в KRaft-режиме** ожидает наличие файла `meta.properties` в папке `log.dirs` (обычно `/var/lib/kafka`), но не находит его.
-
----
-
-## 🔧 Почему так происходит?
-
-В KRaft-режиме Kafka **обязательно требует "форматирования" хранилища**, чтобы создать кластерный мета-файл `meta.properties`. Это действие обычно выполняется **однократно перед первым запуском**, вручную.
-
-Раньше это делалось скриптом `kafka-storage.sh` — но в твоей RPM-инсталляции он может отсутствовать, и нужно выполнить эквивалент вручную.
-
----
-
-## ✅ Решение: инициализация KRaft-хранилища вручную
-
-1. **Сгенерируй UUID кластера:**
-
-```bash
-uuidgen
-```
-
-Скопируй этот UUID, он понадобится на следующем шаге.
-
----
-
-2. **Создай `meta.properties` вручную:**
-
-Создай директорию (если ещё нет):
-
-```bash
-sudo mkdir -p /var/lib/kafka
-sudo chown kafka:kafka /var/lib/kafka
-```
-
-Создай файл `/var/lib/kafka/meta.properties` с содержимым:
-
-```
-version=0
-cluster.id=<UUID>
-node.id=1
-```
-
-👉 где `<UUID>` — это то, что сгенерировал `uuidgen`.
-
----
-
-3. **Проверь разрешения:**
-
-```bash
-sudo chown kafka:kafka /var/lib/kafka/meta.properties
-```
-
----
-
-4. **Удалить мусор, если были старые попытки:**
-
-```bash
-sudo rm -rf /var/lib/kafka/*-log
-```
-
----
-
-5. **Перезапусти Kafka:**
-
-```bash
-sudo systemctl daemon-reexec
-sudo systemctl restart kafka
-sudo systemctl status kafka
-```
-
----
-
-## ✅ Проверка
-
-Если всё прошло успешно, ты увидишь в логах строки вроде:
-
-```
-INFO KafkaServer started (kafka.server.KafkaServer)
-```
-
-И можно будет выполнять команды типа:
-
-```bash
-kafka-topics.sh --bootstrap-server localhost:9092 --list
-```
-
----
-
-Если хочешь — могу помочь тебе с созданием KRaft-кластера на 1 или более нод, с контроллерами и мониторингом.
-
-Отлично, ты близко! Ошибка:
-
-```
-Error: node ID not found in /var/lib/kafka/
-```
-
-означает, что Kafka **не находит `meta.properties` с нужным `node.id`**, соответствующим тому, что указан в `server.properties`.
+Означает, что Kafka **не находит `meta.properties` с нужным `node.id`**, соответствующим тому, что указан в `server.properties`.
 
 ---
 
@@ -956,115 +576,7 @@ Kafka в KRaft-режиме требует, чтобы:
 
 ---
 
-## 🧼 Если не совпадает или файл битый:
-
-1. Удали старые данные:
-
-   ```bash
-   sudo rm -rf /var/lib/kafka/*
-   ```
-
-2. Пересоздай `meta.properties`:
-
-   ```bash
-   sudo nano /var/lib/kafka/meta.properties
-   ```
-
-   Вставь:
-
-   ```
-   version=0
-   cluster.id=<твой-сгенерированный-UUID>
-   node.id=1
-   ```
-
-3. Выстави права:
-
-   ```bash
-   sudo chown -R kafka:kafka /var/lib/kafka
-   ```
-
----
-
-## ✅ Проверка:
-
-* `server.properties` должен содержать:
-
-  ```properties
-  node.id=1
-  log.dirs=/var/lib/kafka
-  ```
-
-* `meta.properties` — **точно тот же `node.id=1`**.
-
----
-
-После этого снова:
-
-```bash
-sudo systemctl restart kafka
-sudo journalctl -u kafka -f
-```
-
-Если всё в порядке, Kafka взлетит. Хочешь — могу показать, как генерировать `meta.properties` автоматически, даже без `kafka-storage.sh`.
-
-Хорошо, теперь мы знаем, что:
-
-* `node.id=1` указан **и в `server.properties`**, и в **`/var/lib/kafka/meta.properties`**
-* Права выставлены корректно
-* Но Kafka всё ещё падает с ошибкой:
-
-> `RuntimeException: Error: node ID not found in /var/lib/kafka/`
-
----
-
-### 🔍 Возможные причины этой ошибки:
-
-#### ✅ 1. **Неверный путь в `log.dirs`**
-
-Убедись, что в `server.properties` путь в `log.dirs` **точно совпадает** с тем, где лежит `meta.properties`. Например:
-
-```properties
-log.dirs=/var/lib/kafka
-```
-
-📌 **Внимание**: если в `log.dirs` указан **другой путь** (например, `/tmp/kafka-logs` или `/var/log/kafka`), Kafka будет искать `meta.properties` там — и не найдет.
-
-Проверь:
-
-```bash
-grep log.dirs /etc/kafka/server.properties
-```
-
----
-
-#### ✅ 2. **Остатки мусора в других лог-директориях**
-
-Если в `log.dirs` указано **несколько директорий через запятую**, Kafka требует наличие корректного `meta.properties` в каждой. Это также может вызвать ошибку `node ID not found`.
-
-Проверь:
-
-```bash
-cat /etc/kafka/server.properties | grep log.dirs
-```
-
-Если там что-то вроде:
-
-```
-log.dirs=/var/lib/kafka,/tmp/kafka-logs
-```
-
-→ это приведёт к падению.
-
-🔧 Решение: оставь только одну папку:
-
-```
-log.dirs=/var/lib/kafka
-```
-
----
-
-#### ✅ 3. **Случайная невидимая ошибка в `meta.properties`**
+## Случайная невидимая ошибка в `meta.properties`
 
 Иногда `meta.properties`, созданный вручную, может содержать лишние символы (например, пробелы в конце строк, символы Windows `\r\n`, невидимые BOM).
 
@@ -1086,9 +598,9 @@ od -c /var/lib/kafka/meta.properties
 
 ---
 
-#### ✅ 4. **Kafka работает от другого пользователя**
+## Kafka работает от другого пользователя
 
-Если Kafka запущена как `kafka`, а `meta.properties` принадлежит `root`, он может быть **недоступен для чтения**. Хотя ты писал, что права стоят — стоит перепроверить:
+Если Kafka запущена как `kafka`, а `meta.properties` принадлежит `root`, он может быть **недоступен для чтения**
 
 ```bash
 ls -l /var/lib/kafka/meta.properties
@@ -1099,205 +611,9 @@ ls -ld /var/lib/kafka
 
 ---
 
-### 🧪 Дополнительная проверка: логов больше
+## 1. Противоречие в конфигурации:
 
-Получи **расширенные логи запуска**:
-
-```bash
-journalctl -u kafka -n 100 --no-pager
-```
-
-Если не поможет — покажи:
-
-* Содержимое `log.dirs`
-* Полный `meta.properties`
-* Точную ошибку из свежего лога
-
-Готов посмотреть и разобрать с тобой.
-
-Спасибо, ты всё показал предельно чётко — и проблема действительно интересная. У тебя:
-
-* `log.dirs=/var/lib/kafka/` (с **завершающим слэшем**)
-* `meta.properties` лежит в `/var/lib/kafka/`, с правильным `node.id=1`
-* Права и формат файла корректны
-
-Но Kafka **всё равно говорит, что не может найти `node.id` в `/var/lib/kafka/`**, что довольно парадоксально.
-
----
-
-### 💡 Что, скорее всего, происходит
-
-Kafka **может быть чувствительна к завершающему слэшу `/`** в `log.dirs`. Такое случается с некоторыми путями в Java/Scala-проектах: путь `"/var/lib/kafka"` и `"/var/lib/kafka/"` **считаются разными**, и могут сравниваться дословно.
-
-### ✅ Шаг 1: Убери завершающий `/` в `log.dirs`
-
-Открой:
-
-```bash
-sudo nano /etc/kafka/server.properties
-```
-
-И замени:
-
-```ini
-log.dirs=/var/lib/kafka/
-```
-
-на:
-
-```ini
-log.dirs=/var/lib/kafka
-```
-
-Сохрани.
-
----
-
-### ✅ Шаг 2: Перезапусти Kafka
-
-```bash
-sudo systemctl daemon-reexec
-sudo systemctl restart kafka
-```
-
-Затем проверь лог:
-
-```bash
-journalctl -u kafka -f
-```
-
----
-
-### 📌 Почему это важно
-
-Kafka в KRaft-режиме проверяет, что:
-
-* Каталог `log.dirs` существует
-* В нём есть файл `meta.properties`
-* Этот файл имеет `node.id`, соответствующий `server.properties`
-
-Если при сравнении путей участвует `Path.equals()` (в Java), то `"/var/lib/kafka"` и `"/var/lib/kafka/"` — **не эквивалентны**. Это может приводить к тому, что Kafka не находит нужную директорию с `meta.properties`.
-
----
-
-Если это действительно решит проблему — будет очень ценный вывод для других, кто запускает Kafka RPM в KRaft-режиме под RHEL-подобными системами.
-
-Понимаю, что ситуация остаётся непростой. Ошибка `No readable meta.properties files found` указывает на то, что Kafka не может найти или прочитать файл `meta.properties`, который необходим для работы в KRaft-режиме. Это может происходить по нескольким причинам, даже если файл существует и имеет правильные права доступа.
-
----
-
-### 🔍 Возможные причины и решения
-
-#### 1. **Проблемы с правами доступа**
-
-Хотя вы уже проверяли права доступа, стоит убедиться, что процесс Kafka имеет необходимые разрешения для чтения файла `meta.properties`. Попробуйте временно установить более открытые права на файл и директорию:
-
-```bash
-sudo chmod -R 777 /var/lib/kafka
-```
-
-
-
-Затем перезапустите сервис Kafka:
-
-```bash
-sudo systemctl restart kafka
-```
-
-
-
-Если это решит проблему, возможно, потребуется настроить SELinux или AppArmor, чтобы разрешить доступ к этим файлам.
-
-#### 2. **Проблемы с SELinux**
-
-Если на вашей системе включен SELinux, он может блокировать доступ к файлу `meta.properties`. Проверьте логи SELinux:
-
-```bash
-sudo ausearch -m avc -ts recent
-```
-
-
-
-Если вы обнаружите соответствующие ошибки, можно временно отключить SELinux для диагностики:
-
-```bash
-sudo setenforce 0
-```
-
-
-
-Если это решит проблему, вам нужно будет настроить соответствующие правила SELinux.
-
-#### 3. **Проблемы с файловой системой**
-
-Убедитесь, что файловая система, на которой находится `/var/lib/kafka`, не имеет ошибок:
-
-```bash
-sudo dmesg | grep -i ext4
-```
-
-
-
-Если вы обнаружите ошибки, возможно, потребуется выполнить проверку и восстановление файловой системы.
-
-#### 4. **Проблемы с версией Kafka**
-
-Убедитесь, что используемая вами версия Kafka поддерживает KRaft-режим. Согласно [Stack Overflow](https://stackoverflow.com/questions/74223969/node-id-vs-broker-id-in-kraft-mode), начиная с версии Kafka 2.8.0, KRaft-режим стал доступен как экспериментальная функция, а с версии 3.0.0 — как стабильная.([stackoverflow.com][1])
-
-#### 5. **Проблемы с конфигурацией**
-
-Проверьте, что в файле `server.properties` указаны правильные параметры:
-
-```ini
-log.dirs=/var/lib/kafka
-node.id=1
-controller.quorum.voters=1@localhost:9093
-listeners=PLAINTEXT://localhost:9092
-log.dirs=/var/lib/kafka
-```
-
-
-
-Убедитесь, что параметр `log.dirs` указывает на правильный путь и что в этом каталоге находится файл `meta.properties`.
-
----
-
-### 🔄 Дополнительные шаги
-
-* Проверьте логи Kafka для получения более подробной информации о причине ошибки:
-
-  ```bash
-  sudo journalctl -u kafka -f
-  ```
-
-
-
-* Если возможно, попробуйте запустить Kafka в другом каталоге данных, чтобы исключить проблемы с текущим расположением.
-
-* Если у вас есть возможность, попробуйте установить Kafka на другой машине или виртуальной машине, чтобы проверить, сохраняется ли проблема.
-
----
-
-Если после выполнения этих шагов проблема сохраняется, пожалуйста, предоставьте дополнительные детали, такие как:
-
-* Полный вывод команды `journalctl -u kafka -f`.
-
-* Содержимое файлов `server.properties` и `meta.properties`.
-
-* Вывод команды `ls -l /var/lib/kafka`.
-
-С этими данными я смогу предоставить более точные рекомендации.
-
-[1]: https://stackoverflow.com/questions/74223969/node-id-vs-broker-id-in-kraft-mode?utm_source=chatgpt.com "apache kafka - node.id vs broker.id in KRaft mode - Stack Overflow"
-
-Спасибо за данные, ситуация понятнее.
-Обращу внимание на пару важных моментов:
-
----
-
-### 1. Противоречие в конфигурации:
-
-У вас в `server.properties` есть строка:
+В `server.properties` есть строка:
 
 ```ini
 zookeeper.connect=localhost:2181
@@ -1326,15 +642,7 @@ controller.listener.names=CONTROLLER
 
 Если у вас **нет** правильного `meta.properties`, нужно его создать командой:
 
-```bash
-sudo -u kafka /usr/bin/kafka-storage.sh format -t <cluster-id> -c /etc/kafka/server.properties
-```
-
-* `<cluster-id>` нужно получить с помощью команды:
-
-```bash
-/usr/bin/kafka-storage.sh random-uuid
-```
+См. выше
 
 * После форматирования директории с логами Kafka запустится в KRaft-режиме.
 
@@ -1350,42 +658,7 @@ sudo -u kafka /usr/bin/kafka-storage.sh format -t <cluster-id> -c /etc/kafka/ser
 
 ### 4. Пример базового `server.properties` для KRaft:
 
-```ini
-# listeners and advertised listeners
-listeners=PLAINTEXT://:9092,CONTROLLER://:9093
-advertised.listeners=PLAINTEXT://10.30.40.150:9092
-
-# basic performance configs
-num.network.threads=3
-num.io.threads=8
-socket.send.buffer.bytes=102400
-socket.receive.buffer.bytes=102400
-socket.request.max.bytes=104857600
-
-# log dirs
-log.dirs=/var/lib/kafka
-
-# Kafka raft mode configs
-process.roles=broker,controller
-node.id=1
-controller.quorum.voters=1@localhost:9093
-controller.listener.names=CONTROLLER
-
-# replication factors etc
-num.partitions=1
-offsets.topic.replication.factor=1
-transaction.state.log.replication.factor=1
-transaction.state.log.min.isr=1
-
-# retention policies
-log.retention.hours=168
-log.retention.check.interval.ms=300000
-
-# zookeeper should be removed or commented out here!
-# zookeeper.connect=localhost:2181
-```
-
----
+См. выше
 
 ### 5. Итоговые действия для KRaft режима:
 
@@ -1394,7 +667,7 @@ log.retention.check.interval.ms=300000
 cluster_id=$(/usr/bin/kafka-storage.sh random-uuid)
 
 # 2. Форматируем директорию с логами
-sudo -u kafka /usr/bin/kafka-storage.sh format -t $cluster_id -c /etc/kafka/server.properties
+См. выше
 
 # 3. Проверяем права на директорию /var/lib/kafka (должен быть пользователь kafka)
 sudo chown -R kafka:kafka /var/lib/kafka
@@ -1406,8 +679,6 @@ sudo systemctl restart kafka
 sudo systemctl status kafka
 ```
 
----
-
 Если `kafka-storage.sh` у вас отсутствует или лежит в другом месте, его можно найти командой:
 
 ```bash
@@ -1416,13 +687,7 @@ sudo find / -name kafka-storage.sh
 
 ---
 
-Если хотите, могу помочь с полным примером сервиса systemd и точными командами под AlmaLinux. Просто скажите!
-
----
-
-Если будет интересно, могу рассказать, как запустить Kafka с ZooKeeper — это чуть проще, но без преимуществ KRaft.
-
-Отлично, это уже здорово — Kafka запускается и начинает инициализацию KRaft-кластера!
+## Отлично, это уже здорово — Kafka запускается и начинает инициализацию KRaft-кластера!
 
 Вот что значат эти логи:
 
@@ -1441,38 +706,40 @@ sudo find / -name kafka-storage.sh
    ```bash
    sudo ss -plnt | grep java
    ```
+
+   ```bash
+   LISTEN 0      50                 *:9093             *:*    users:(("java",pid=126473,fd=141))                       
+   LISTEN 0      50                 *:9092             *:*    users:(("java",pid=126473,fd=169))                       
+   LISTEN 0      50                 *:35747            *:*    users:(("java",pid=126473,fd=128)) 
+   ```
 4. Попробуйте подключиться к Kafka с клиента, например, с помощью `kafka-console-producer.sh` или `kafka-console-consumer.sh`.
 
 ---
-
-### Если вдруг сервис продолжит падать, рекомендую:
-
-* Заглянуть в логи полной глубиной:
-
-  ```bash
-  sudo journalctl -u kafka -b
-  ```
-* Проверить, что права на `/var/lib/kafka` и все вложенные файлы принадлежат пользователю `kafka` (который запускает процесс).
-* Убедиться, что в `server.properties` нет конфликтующих параметров (особенно связанных с ZooKeeper).
-
----
-
-### Подытоживая:
-
-* Запуск с KRaft — это современный режим без ZooKeeper, и лог с `bootstrap record` — нормальный признак старта.
-* Если нет ошибок после этого — кластер живой и работоспособный!
-* Можно приступать к созданию топиков, публикации и потреблению сообщений.
-
----
-
-Если хочешь — могу помочь с примером простых команд для проверки работы Kafka и настройки продюсеров/консьюмеров.
-Напиши, если надо!
 
 Отлично! 🎉 Kafka действительно **запустилась успешно**, судя по:
 
 * `LISTEN` на портах **9092** (для клиентов) и **9093** (для KRaft-контроллера)
 * Отсутствию ошибок и стабильной работе systemd-сервиса
 * Логам `QuorumController`, которые показывают нормальную инициализацию
+
+```bash
+sudo systemctl status kafka
+```
+
+```bash
+● kafka.service - Apache Kafka Server
+     Loaded: loaded (/etc/systemd/system/kafka.service; enabled; preset: disabled)
+     Active: active (running) since Tue 2025-06-03 17:51:27 MSK; 12s ago
+   Main PID: 133446 (java)
+      Tasks: 101 (limit: 151318)
+     Memory: 377.1M
+        CPU: 7.898s
+     CGroup: /system.slice/kafka.service
+             └─133446 /usr/lib/jvm/java-21-openjdk/bin/java -Xmx1G -Xms1G -server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -XX:MaxInlineLeve>
+
+июн 03 17:51:27 dbcs01 systemd[1]: Started Apache Kafka Server.
+июн 03 17:51:29 dbcs01 kafka-server-start.sh[133446]: [2025-06-03 17:51:29,456] WARN [QuorumController id=1] Performing controller activation. Loaded ZK migration state of NONE. This is expected because this>
+```
 
 ---
 
@@ -1483,100 +750,59 @@ sudo find / -name kafka-storage.sh
 #### ✅ 1. Создай топик:
 
 ```bash
-/usr/bin/kafka-topics.sh --create \
-  --bootstrap-server localhost:9092 \
-  --topic test-topic \
-  --partitions 1 \
-  --replication-factor 1
-```
-
-#### ✅ 2. Посмотри список топиков:
-
-```bash
-/usr/bin/kafka-topics.sh --list \
-  --bootstrap-server localhost:9092
-```
-
-#### ✅ 3. Запусти продюсер:
-
-```bash
-/usr/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic test-topic
-```
-
-> Введи что-нибудь — оно отправится в Kafka.
-
-#### ✅ 4. Запусти консьюмер в другом терминале:
-
-```bash
-/usr/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic test-topic --from-beginning
-```
-
-> Ты должен увидеть сообщения, которые ввёл продюсером.
-
----
-
-Если всё это работает — у тебя полностью **функциональный Kafka-сервер в режиме KRaft**. 🔥
-Дальше можно:
-
-* Подключать Python-приложения (через `confluent-kafka`, `kafka-python`, `faust`, и т.д.)
-* Добавлять ACL, REST-прокси, схематизацию (Confluent Schema Registry)
-* Переходить к балансировке или настройке нескольких брокеров
-
-Если захочешь — помогу и с этим.
-
-Отличная работа!
-
-Ты абсолютно прав — и хорошо подметил!
-
-📦 При установке **Kafka из RPM** (как у тебя: `kafka-3.9.0-1.el8.x86_64`), все утилиты действительно кладутся в:
-
-```
-/usr/bin/kafka/
-```
-
-а не в `/usr/bin/` напрямую, как бывает при установке вручную из архивов с сайта Apache.
-
----
-
-### Примеры с учетом твоего пути:
-
-#### ✅ Создание топика:
-
-```bash
 /usr/bin/kafka/kafka-topics.sh --create \
   --bootstrap-server localhost:9092 \
   --topic test-topic \
   --partitions 1 \
   --replication-factor 1
+# Created topic test-topic.
 ```
 
-#### ✅ Список топиков:
+#### ✅ 2. Посмотри список топиков:
 
 ```bash
-/usr/bin/kafka/kafka-topics.sh --list \
+usr/bin/kafka/kafka-topics.sh --list \
   --bootstrap-server localhost:9092
+# test-topic
 ```
 
-#### ✅ Продюсер:
+#### ✅ 3. Запусти продюсер:
+
+> Введи что-нибудь — оно отправится в Kafka.
 
 ```bash
 /usr/bin/kafka/kafka-console-producer.sh \
   --bootstrap-server localhost:9092 \
   --topic test-topic
+# >Привет Kafka!
+# Это тестовое сообщение.
+# >>
+# >else one msg
 ```
 
-#### ✅ Консьюмер:
+#### ✅ 4. Запусти консьюмер в другом терминале:
+
+> Ты должен увидеть сообщения, которые ввёл продюсером.
 
 ```bash
 /usr/bin/kafka/kafka-console-consumer.sh \
   --bootstrap-server localhost:9092 \
   --topic test-topic \
   --from-beginning
+# Привет Kafka!
+# Это тестовое сообщение.
+#
+# else one msg
 ```
 
 ---
 
-Если часто будешь запускать эти утилиты, можешь добавить себе алиасы в `~/.bashrc` или `~/.bash_aliases`, например:
+Если всё это работает — у тебя полностью **функциональный Kafka-сервер в режиме KRaft**. 🔥
+
+
+## Если часто будешь запускать эти утилиты, можешь добавить себе алиасы 
+
+В `~/.bashrc` или `~/.bash_aliases`, например:
 
 ```bash
 alias ktopics='/usr/bin/kafka/kafka-topics.sh'
@@ -1592,84 +818,10 @@ source ~/.bashrc
 
 И можно будет писать коротко: `kprod --bootstrap-server ...`
 
-Если что — помогу с настройкой клиентских библиотек или с multi-broker конфигурацией!
 
-Отличный вопрос! Давай пошагово, на практике. Сейчас ты на самом пороге — Kafka у тебя запущена, продюсер и консьюмер работают. Осталось только **отправить сообщение** и **получить его**.
+## Существует несколько удобных веб-интерфейсов для работы с Apache Kafka
 
----
-
-## ✅ Что сделать:
-
-### 1. **Открой два терминала**
-
-#### 🟩 Терминал 1 — Consumer (слушатель)
-
-Запусти консьюмера, чтобы он слушал `test-topic`:
-
-```bash
-/usr/bin/kafka/kafka-console-consumer.sh \
-  --bootstrap-server localhost:9092 \
-  --topic test-topic \
-  --from-beginning
-```
-
-Он будет "висеть" в ожидании сообщений.
-
----
-
-#### 🟦 Терминал 2 — Producer (отправитель)
-
-Теперь открой второй терминал и запусти продюсера:
-
-```bash
-/usr/bin/kafka/kafka-console-producer.sh \
-  --bootstrap-server localhost:9092 \
-  --topic test-topic
-```
-
-Тебе откроется пустая строка. Начни вводить текст:
-
-```
-Привет Kafka!
-Это тестовое сообщение.
-```
-
-После ввода каждого сообщения нажимай **Enter** — сообщение будет отправлено в Kafka.
-
----
-
-### 🔄 Результат
-
-В **первом терминале (консьюмер)** ты сразу же увидишь эти сообщения на экране:
-
-```
-Привет Kafka!
-Это тестовое сообщение.
-```
-
----
-
-## ❗️ Если не видно сообщений:
-
-* Убедись, что **топик существует** и правильно указан в обеих командах.
-* Используй флаг `--from-beginning`, если хочешь читать и старые сообщения.
-* Консьюмер должен быть запущен **до или во время** отправки, чтобы успеть "услышать".
-
----
-
-## 📌 Резюме
-
-Kafka уже работает. Сейчас ты:
-
-* Создал топик
-* Подключился как продюсер
-* Получил сообщение как консьюмер
-
-Поздравляю, ты сделал первый круг в Kafka 🎉
-
-Если хочешь, могу показать как это делать программно — например, на Python с помощью `kafka-python` или `confluent-kafka`.
-
-Да, ты прав: существует несколько удобных веб-интерфейсов для работы с Apache Kafka. Вот некоторые из них:
+Вот некоторые из них:
 
 ---
 
@@ -1727,7 +879,6 @@ Kafka уже работает. Сейчас ты:
 
 ---
 
-Если тебе нужно выбрать подходящий инструмент, я могу помочь с установкой и настройкой одного из них. Какой из этих интерфейсов тебе наиболее интересен?
 
 [1]: https://obsidiandynamics.github.io/kafdrop/?utm_source=chatgpt.com "Kafdrop – Kafka Web UI   | kafdrop"
 [2]: https://dev.to/ekoutanov/kafdrop-an-open-source-kafka-web-ui-mbn?utm_source=chatgpt.com "Kafdrop - An Open-Source Kafka Web UI - DEV Community"
@@ -1748,7 +899,7 @@ Kafka уже работает. Сейчас ты:
 
 ---
 
-### 🚀 Как запустить Kafdrop (если у тебя уже работает Kafka):
+### 🚀 Как запустить Kafdrop (если уже работает Kafka):
 
 ```bash
 docker run -d \
@@ -1760,10 +911,11 @@ docker run -d \
 📌 Или, если **без Docker**:
 
 1. [Скачай JAR-файл с GitHub Releases](https://github.com/obsidiandynamics/kafdrop/releases)
+
 2. Запусти так:
 
    ```bash
-   java -jar kafdrop-<version>.jar --kafka.brokerConnect=localhost:9092
+   java -jar kafdrop-4.1.0.jar --kafka.brokerConnect=localhost:9092
    ```
 
 ---
@@ -1774,43 +926,7 @@ docker run -d \
 
 ---
 
-Если хочешь, могу помочь тебе прямо сейчас его поднять — с Docker или без. Скажи только, Kafka у тебя точно доступна на `localhost:9092`?
-
-Отлично, что Kafka теперь работает и доступна на порту 9092. Давай теперь настроим Kafdrop — удобный веб-интерфейс для работы с Kafka.
-
----
-
-### 🚀 Как запустить Kafdrop
-
-#### Вариант 1: Через Docker (самый простой способ)
-
-Если у тебя установлен Docker, запусти Kafdrop одной командой:
-
-```bash
-docker run -d --rm -p 9000:9000 \
-  -e KAFKA_BROKERCONNECT=localhost:9092 \
-  obsidiandynamics/kafdrop
-```
-
-После этого открой браузер и перейди по адресу: [http://localhost:9000](http://localhost:9000).
-
----
-
-#### Вариант 2: Запуск через JAR-файл
-
-Если Docker не установлен, можно запустить Kafdrop напрямую из JAR-файла:
-
-1. Скачай JAR-файл с [GitHub Releases](https://github.com/obsidiandynamics/kafdrop/releases).
-
-2. Запусти его командой:
-
-   ```bash
-   java -jar kafdrop-<version>.jar --kafka.brokerConnect=localhost:9092
-   ```
-
-3. Открой браузер и перейди по адресу: [http://localhost:9000](http://localhost:9000).
-
----
+## Kafdrop — удобный веб-интерфейс для работы с Kafka
 
 ### 🧭 Что можно делать в веб-интерфейсе Kafdrop
 
@@ -1824,41 +940,10 @@ docker run -d --rm -p 9000:9000 \
 
 ---
 
-Если хочешь, я могу помочь тебе с созданием первого топика, отправкой и получением сообщений. Напиши, если нужна помощь!
 
-[![Kafdrop — Kafka Web UI — Quick Start ...](https://images.openai.com/thumbnails/b30338276d8e1da5d8e029b79e2f3b01.png)](https://medium.com/%40jeyagan/kafdrop-kafka-web-ui-quick-start-example-42beb5efd7b7)
+## Ошибка `UnsupportedClassVersionError` 
 
-Конечно! Чтобы скачать JAR-файл Kafdrop с GitHub Releases, выполните следующие шаги:
-
-1. **Перейдите на страницу релизов Kafdrop**:
-   Откройте [https://github.com/obsidiandynamics/kafdrop/releases](https://github.com/obsidiandynamics/kafdrop/releases).
-
-2. **Выберите нужную версию**:
-   На странице релизов найдите и выберите версию Kafdrop, которую вы хотите скачать.
-
-3. **Скачайте JAR-файл**:
-   В разделе "Assets" найдите файл с именем вида `kafdrop-<version>.jar` и скачайте его.
-
-   Например, для версии 4.0.0 файл будет называться `kafdrop-4.0.0.jar`.
-
-4. **Запустите Kafdrop**:
-   После скачивания JAR-файла, откройте терминал и выполните команду:
-
-   ```bash
-   java -jar kafdrop-<version>.jar --kafka.brokerConnect=localhost:9092
-   ```
-
-
-Замените `<version>` на номер версии JAR-файла, который вы скачали.
-
-5. **Откройте веб-интерфейс**:
-   После запуска Kafdrop, откройте веб-браузер и перейдите по адресу: [http://localhost:9000](http://localhost:9000).
-
-Теперь вы можете использовать веб-интерфейс Kafdrop для управления и мониторинга вашего кластера Kafka.
-
-Если у вас возникнут дополнительные вопросы или потребуется помощь, не стесняйтесь обращаться!
-
-Ошибка `UnsupportedClassVersionError` говорит о том, что версия Java, с которой вы запускаете JAR-файл, слишком старая и не поддерживает версию байткода, с которой был скомпилирован Kafdrop.
+Говорит о том, что версия Java, с которой вы запускаете JAR-файл, слишком старая и не поддерживает версию байткода, с которой был скомпилирован Kafdrop.
 
 В вашем случае:
 
@@ -1897,15 +982,12 @@ sudo alternatives --config java
 
 ### После этого снова попробуйте запустить Kafdrop:
 
-```bash
-java -jar kafdrop-4.1.0.jar --kafka.brokerConnect=localhost:9092
-```
+см. выше
 
----
 
-Если нужно — могу помочь с установкой и настройкой Java 17. Напишите!
+## Ошибка `java.net.BindException: Адрес уже используется` 
 
-Ошибка `java.net.BindException: Адрес уже используется` означает, что порт, на котором Kafdrop пытается запуститься, уже занят другим процессом.
+Означает, что порт, на котором Kafdrop пытается запуститься, уже занят другим процессом.
 
 По умолчанию Kafdrop слушает порт **9000**.
 
@@ -1933,38 +1015,6 @@ sudo kill <PID>
 java -jar kafdrop-4.1.0.jar --kafka.brokerConnect=localhost:9092 --server.port=8080
 ```
 
----
-
-Проверьте и отпишись, помогло ли!
-
-Понятно, ClickHouse уже занял порт 9000, и убивать его нельзя.
-
-У Kafdrop можно изменить порт, на котором он слушает, с помощью параметра `--server.port`.
-
-Просто запусти Kafdrop с указанием другого порта, например 8080:
-
-```bash
-java -jar kafdrop-4.1.0.jar --kafka.brokerConnect=localhost:9092 --server.port=8080
-```
-
-После этого веб-интерфейс Kafdrop будет доступен по адресу: `http://localhost:8080`.
-
-Если хочешь, можно выбрать любой свободный порт.
-
----
-
-Если хочешь, могу помочь подобрать свободный порт или сделать проверку на твоей машине.
-
-Ошибка `java.net.BindException: Адрес уже используется` при попытке запустить Kafdrop на порту 8080 означает, что этот порт уже занят другим процессом.
-
-Проверим, что слушает 8080:
-
-```bash
-sudo ss -plnt | grep :8080
-```
-
-Если там что-то есть, нужно либо остановить этот процесс, либо выбрать свободный порт для Kafdrop.
-
 Чтобы быстро найти свободный порт, можно использовать команду:
 
 ```bash
@@ -1973,19 +1023,9 @@ comm -23 <(seq 8000 8100 | sort) <(sudo ss -plnt | awk '{print $4}' | grep -oE '
 
 Она выведет список портов в диапазоне 8000-8100, которые не заняты.
 
-Попробуй запустить Kafdrop, например, на порту 8090:
+## Отлично, список портов свободен — значит дело не в занятости порта
 
-```bash
-java -jar kafdrop-4.1.0.jar --kafka.brokerConnect=localhost:9092 --server.port=8090
-```
-
-Если и там ошибка — повтори проверку занятого порта и выбери другой.
-
----
-
-Если хочешь, помогу проверить и подобрать порт — скинь вывод `sudo ss -plnt`.
-
-Отлично, список портов свободен — значит дело не в занятости порта, а, вероятно, в **двойной инициализации HTTP-сервера внутри самого Kafdrop**, или конфликте с настройками Spring Boot Actuator.
+А, вероятно, в **двойной инициализации HTTP-сервера внутри самого Kafdrop**, или конфликте с настройками Spring Boot Actuator.
 
 ### 🔍 Причина
 
@@ -2035,10 +1075,6 @@ http://<IP-сервера>:8090/
 http://localhost:8090/
 ```
 
----
-
-Хочешь, могу помочь сделать systemd unit-файл, чтобы запускать Kafdrop как сервис.
-
 Да — всё в порядке:
 
 ```
@@ -2076,14 +1112,6 @@ Started Kafdrop in 6.67 seconds (process running for 8.14)
 
 ---
 
-Если хочешь, могу помочь тебе:
-
-* подключить его к реальным продюсерам/консьюмерам,
-* или оформить запуск через `systemd`, чтобы всё автоматически поднималось при перезагрузке.
-
-Отличный вопрос, и ты **очень вовремя** его задал — переместить кластерные данные Kafka **можно и безопасно**, но при соблюдении нескольких чётких шагов. Это особенно важно, если кластер уже запущен и инициализирован (как у тебя).
-
----
 
 ## 🔄 Вариант: Перенос данных кластера в новое место
 
@@ -2093,7 +1121,7 @@ Started Kafdrop in 6.67 seconds (process running for 8.14)
 
 ### ✅ Шаги по переносу `/var/lib/kafka` на новый диск
 
-Предположим, что ты хочешь переместить данные в, например, `/data/kafka`.
+Предположим, что ты хочешь переместить данные в, например, `/home/data/kafka`.
 
 1. **Останови Kafka**:
 
@@ -2104,30 +1132,30 @@ Started Kafdrop in 6.67 seconds (process running for 8.14)
 2. **Создай новый путь, если он не существует**:
 
    ```bash
-   sudo mkdir -p /data/kafka
-   sudo chown -R kafka:kafka /data/kafka
+   sudo mkdir -p /home/data/kafka
+   sudo chown -R kafka:kafka /home/data/kafka
    ```
 
 3. **Перемести текущие данные**:
 
    ```bash
-   sudo rsync -avh /var/lib/kafka/ /data/kafka/
+   sudo rsync -avh /var/lib/kafka/ /home/data/kafka
    ```
 
-   ⚠️ Убедись, что внутри `/data/kafka` после копирования остались файлы вроде `meta.properties`, `log-start-offset-checkpoint`, директории `@topic@partition` и пр.
+   ⚠️ Убедись, что внутри `/home/data/kafka` после копирования остались файлы вроде `meta.properties`, `log-start-offset-checkpoint`, директории `@topic@partition` и пр.
 
 4. **Измени конфигурацию Kafka**:
 
    В файле `/etc/kafka/server.properties` измени строку:
 
    ```properties
-   log.dirs=/data/kafka
+   log.dirs=/home/data/kafka
    ```
 
 5. **Проверь владельца и права**:
 
    ```bash
-   sudo chown -R kafka:kafka /data/kafka
+   sudo chown -R kafka:kafka /home/data/kafka
    ```
 
 6. **Запусти Kafka заново**:
@@ -2163,10 +1191,4 @@ sudo systemctl start kafka
 ```
 
 Но это скорее временное решение — лучше всё же указать путь явно через `log.dirs`.
-
----
-
-Если хочешь — могу помочь оформить это в виде `systemd`-таймера или `pre-start` скрипта, если потребуется автоматизация в будущем.
-
-Готов двигаться дальше к программному использованию, когда будешь!
 
