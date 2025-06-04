@@ -349,22 +349,16 @@ __consumer_offsets
 test-topic
 ```
 
----
-
 [1]: https://hostnextra.com/learn/tutorials/installing-apache-kafka-on-almalinux?utm_source=chatgpt.com "Installing Apache Kafka on AlmaLinux 9 - HostnExtra"
 [2]: https://idroot.us/install-apache-kafka-almalinux-9/?utm_source=chatgpt.com "How To Install Apache Kafka on AlmaLinux 9 - idroot"
 [3]: https://orcacore.com/install-apache-kafka-almalinux-9/?utm_source=chatgpt.com "Install Apache Kafka on AlmaLinux 9 | Full Guide - OrcaCore"
 
----
+[4]: https://www.infoq.com/news/2022/10/apache-kafka-kraft/?utm_source=chatgpt.com "Apache Kafka 3.3 Replaces ZooKeeper with the New KRaft Consensus Protocol - InfoQ"
+[5]: https://developer.confluent.io/learn/kraft/?utm_source=chatgpt.com "KRaft - Apache Kafka Without ZooKeeper"
+[6]: https://www.reddit.com/r/apachekafka/comments/1je7h1q?utm_source=chatgpt.com "Apache Kafka 4.0 released 🎉"
+[7]: https://medium.com/%40erkndmrl/how-to-run-apache-kafka-without-zookeeper-3376468ddaa8?utm_source=chatgpt.com "How to run Apache Kafka without Zookeeper | by Erkan Demirel | Medium"
 
-[1]: https://www.infoq.com/news/2022/10/apache-kafka-kraft/?utm_source=chatgpt.com "Apache Kafka 3.3 Replaces ZooKeeper with the New KRaft Consensus Protocol - InfoQ"
-[2]: https://developer.confluent.io/learn/kraft/?utm_source=chatgpt.com "KRaft - Apache Kafka Without ZooKeeper"
-[3]: https://www.reddit.com/r/apachekafka/comments/1je7h1q?utm_source=chatgpt.com "Apache Kafka 4.0 released 🎉"
-[4]: https://medium.com/%40erkndmrl/how-to-run-apache-kafka-without-zookeeper-3376468ddaa8?utm_source=chatgpt.com "How to run Apache Kafka without Zookeeper | by Erkan Demirel | Medium"
-
----
-
-[1]: https://www.reddit.com/r/apachekafka/comments/11rxz39?utm_source=chatgpt.com "Kafka forgets it cleaned up its own topics??"
+[8]: https://www.reddit.com/r/apachekafka/comments/11rxz39?utm_source=chatgpt.com "Kafka forgets it cleaned up its own topics??"
 
 ## Ошибка `Start request repeated too quickly` в systemd 
 
